@@ -41,6 +41,7 @@ type FxHashSet<V> = hashbrown::HashSet<V, BuildHasherDefault<FxHasher>>;
 
 pub(crate) mod cfg;
 pub(crate) mod domtree;
+pub(crate) mod fast;
 pub mod indexset;
 pub(crate) mod ion;
 pub mod moves;
@@ -1534,7 +1535,11 @@ pub fn run<F: Function>(
     env: &MachineEnv,
     options: &RegallocOptions,
 ) -> Result<Output, RegAllocError> {
-    ion::run(func, env, options.verbose_log, options.validate_ssa)
+    if options.use_fast_allocator {
+        fast::run(func, env, options.verbose_log, options.validate_ssa)
+    } else {
+        ion::run(func, env, options.verbose_log, options.validate_ssa)
+    }
 }
 
 /// Options for allocation.
@@ -1545,4 +1550,7 @@ pub struct RegallocOptions {
 
     /// Run the SSA validator before allocating registers.
     pub validate_ssa: bool,
+
+    /// Use faste allocator.
+    pub use_fast_allocator: bool,
 }
