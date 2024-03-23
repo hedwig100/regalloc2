@@ -6,13 +6,22 @@ use lru_cache::LruCache;
 use std::result::Result;
 use std::vec::Vec;
 
+pub(crate) mod run;
+
+#[derive(Clone, Debug)]
 struct SpillSlotData {
     pub class: RegClass,
-    pub slots: u32, // offset from the base of the stack frame
+    pub slots: usize, // offset from the base of the stack frame
+}
+
+impl SpillSlotData {
+    pub fn new(class: RegClass, slots: usize) -> Self {
+        Self { class, slots }
+    }
 }
 
 /// Return the size of a register class in bytes.
-fn regclass_size(regclass: RegClass) -> u32 {
+fn regclass_size(regclass: RegClass) -> usize {
     match regclass {
         RegClass::Int => 4,
         RegClass::Float => 8,
@@ -52,7 +61,7 @@ struct Env<'a, F: Function> {
     /// This is used to assign spill slots.
     pub current_slot: usize,
 
-    /// Spill slots for each register.
+    /// Spill slots for each virtual register.
     pub spillslots: Vec<SpillSlotData>,
 
     /// Cache for virtual register to spill slot mapping.
@@ -62,6 +71,7 @@ struct Env<'a, F: Function> {
 
     // Output:
     pub allocs: Vec<Allocation>,
+    pub edits: Edits,
     pub inst_alloc_offsets: Vec<u32>,
     pub num_spillslots: u32,
 
@@ -85,16 +95,12 @@ impl<'a, F: Function> Env<'a, F> {
             vreg_cache: LruCache::new(128),
 
             allocs: Vec::new(),
+            edits: Edits::new(),
             inst_alloc_offsets: Vec::new(),
             num_spillslots: 0,
 
             enable_annotations,
         }
-    }
-
-    pub(crate) fn run(&mut self) -> Result<Edits, RegAllocError> {
-        // TODO: implement register allocation here
-        Ok(Edits::new())
     }
 }
 
@@ -111,11 +117,11 @@ pub fn run<F: Function>(
     }
 
     let mut env = Env::new(func, mach_env, cfginfo, enable_annotations);
-    let edits = env.run()?;
+    env.run()?;
 
     Ok(Output {
         num_spillslots: env.num_spillslots as usize,
-        edits: edits.to_vec(),
+        edits: env.edits.to_vec(),
         allocs: env.allocs,
         inst_alloc_offsets: env.inst_alloc_offsets,
 
